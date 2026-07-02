@@ -25,6 +25,7 @@ const el = {
   nowValue: document.getElementById("now-value"),
   nowTrend: document.getElementById("now-trend"),
   nowNext: document.getElementById("now-next"),
+  nowCountdown: document.getElementById("now-countdown"),
   updated: document.getElementById("updated"),
   chartTitle: document.getElementById("chart-title"),
   chart: document.getElementById("chart"),
@@ -305,7 +306,7 @@ function parseWaterlevels(doc) {
 function countdownText(msUntil) {
   const totalMin = Math.max(0, Math.round(msUntil / 60000));
   const h = Math.floor(totalMin / 60), m = totalMin % 60;
-  return h > 0 ? `om ${h} t ${m} min` : `om ${m} min`;
+  return h > 0 ? `${h} t ${m} min` : `${m} min`;
 }
 
 function renderNow() {
@@ -325,9 +326,14 @@ function renderNow() {
   }
 
   const next = extremes.find((x) => new Date(x.time).getTime() > now);
-  el.nowNext.textContent = next
-    ? `${next.flag === "high" ? "Flo" : "Fjære"} kl. ${clockOf(next.time)} (${Math.round(next.value)} cm) – ${countdownText(new Date(next.time).getTime() - now)}`
-    : "–";
+  if (next) {
+    const isHigh = next.flag === "high";
+    el.nowNext.textContent = `${isHigh ? "Flo" : "Fjære"} kl. ${clockOf(next.time)} (${Math.round(next.value)} cm)`;
+    el.nowCountdown.textContent = `${countdownText(new Date(next.time).getTime() - now)} til ${isHigh ? "topp" : "bunn"}`;
+  } else {
+    el.nowNext.textContent = "–";
+    el.nowCountdown.textContent = "";
+  }
   el.nowCard.hidden = false;
 }
 

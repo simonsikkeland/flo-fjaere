@@ -243,7 +243,17 @@ main {
   color: var(--muted);
 }
 
-.now-next { font-size: 1.05rem; font-weight: 600; }
+.now-next {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.now-countdown {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
 
 .updated {
   text-align: center;

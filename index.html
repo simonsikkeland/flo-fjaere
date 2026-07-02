@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flo og fjære</title>
+  <meta name="description" content="Flo og fjære (høyvann og lavvann) for steder langs norskekysten. Data fra Kartverket.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌊%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="site-header">
+    <h1>🌊 Flo og fjære</h1>
+    <p class="tagline">Høyvann og lavvann langs norskekysten</p>
+
+    <div class="search-wrap">
+      <input type="search" id="search" placeholder="Søk etter sted, f.eks. Ålesund …"
+             autocomplete="off" spellcheck="false" aria-label="Søk etter sted">
+      <ul id="suggestions" class="suggestions" hidden></ul>
+    </div>
+  </header>
+
+  <main id="result" hidden>
+    <section class="location-head">
+      <h2 id="location-name"></h2>
+      <p id="location-meta" class="muted"></p>
+    </section>
+
+    <section class="now-card" id="now-card" hidden>
+      <div>
+        <span class="now-label">Vannstand nå</span>
+        <span class="now-value" id="now-value"></span>
+      </div>
+      <div>
+        <span class="now-label">Neste</span>
+        <span class="now-next" id="now-next"></span>
+      </div>
+    </section>
+
+    <section class="chart-card">
+      <h3 id="chart-title">I dag</h3>
+      <div id="chart"></div>
+    </section>
+
+    <section class="table-card">
+      <h3>Kommende dager</h3>
+      <div id="tide-tables"></div>
+    </section>
+  </main>
+
+  <div id="status" class="status" hidden></div>
+
+  <footer class="site-footer">
+    <p>Høyder i cm over sjøkartnull. Tidspunkt i norsk lokaltid.</p>
+    <p>Data fra <a href="https://www.kartverket.no/til-sjos/se-havniva" target="_blank" rel="noopener">Kartverket</a>
+      (<a href="https://vannstand.kartverket.no/tideapi_no.html" target="_blank" rel="noopener">vannstands-API</a>
+      og stedsnavn-API). Kun tidevannsprediksjoner – vær og vind kommer i tillegg.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

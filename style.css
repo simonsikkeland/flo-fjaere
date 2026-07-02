@@ -139,6 +139,12 @@ a { color: var(--accent); }
 
 .geo-btn:hover { background: rgba(255, 255, 255, 0.28); }
 
+.geo-btn svg {
+  width: 1.1em;
+  height: 1.1em;
+  flex-shrink: 0;
+}
+
 /* Favoritter */
 .favorites {
   display: flex;

@@ -103,6 +103,44 @@ a { color: var(--accent); }
   color: var(--muted);
 }
 
+/* Favoritter */
+.favorites {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  max-width: 480px;
+  margin: 0.9rem auto 0;
+}
+
+.fav-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.9rem;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.fav-chip:hover { background: rgba(255, 255, 255, 0.28); }
+
+.fav-toggle {
+  background: none;
+  border: none;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #d4a017;
+  vertical-align: baseline;
+  padding: 0 0.15rem;
+}
+
+.fav-toggle:hover { transform: scale(1.15); }
+
 /* Main layout */
 main {
   max-width: 760px;
@@ -144,7 +182,19 @@ main {
   font-weight: 700;
 }
 
+.now-trend {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 .now-next { font-size: 1.05rem; font-weight: 600; }
+
+.updated {
+  text-align: center;
+  font-size: 0.82rem;
+  margin: -0.4rem 0 1rem;
+}
 
 /* Cards */
 .chart-card, .table-card {
@@ -159,6 +209,31 @@ main {
   margin: 0 0 0.6rem;
   font-size: 1.05rem;
 }
+
+/* Utvidbar «Kommende dager» */
+details.table-card { padding: 0; }
+
+.card-summary {
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 1rem 1.2rem;
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius);
+}
+
+.card-summary::-webkit-details-marker { display: none; }
+
+.card-summary::after {
+  content: "▾";
+  float: right;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+
+details[open] .card-summary::after { transform: rotate(180deg); }
+
+details.table-card #tide-tables { padding: 0 1.2rem 1.2rem; }
 
 #chart svg { display: block; width: 100%; height: auto; }
 

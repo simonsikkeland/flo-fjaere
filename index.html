@@ -18,11 +18,17 @@
              autocomplete="off" spellcheck="false" aria-label="Søk etter sted">
       <ul id="suggestions" class="suggestions" hidden></ul>
     </div>
+
+    <div id="favorites" class="favorites" hidden></div>
   </header>
 
   <main id="result" hidden>
     <section class="location-head">
-      <h2 id="location-name"></h2>
+      <h2>
+        <span id="location-name"></span>
+        <button id="fav-toggle" class="fav-toggle" type="button"
+                title="Legg til i favoritter" aria-label="Legg til i favoritter">☆</button>
+      </h2>
       <p id="location-meta" class="muted"></p>
     </section>
 
@@ -30,6 +36,7 @@
       <div>
         <span class="now-label">Vannstand nå</span>
         <span class="now-value" id="now-value"></span>
+        <span class="now-trend" id="now-trend"></span>
       </div>
       <div>
         <span class="now-label">Neste</span>
@@ -37,15 +44,17 @@
       </div>
     </section>
 
+    <p id="updated" class="updated muted"></p>
+
     <section class="chart-card">
       <h3 id="chart-title">I dag</h3>
       <div id="chart"></div>
     </section>
 
-    <section class="table-card">
-      <h3>Kommende dager</h3>
+    <details class="table-card">
+      <summary class="card-summary">Kommende dager</summary>
       <div id="tide-tables"></div>
-    </section>
+    </details>
   </main>
 
   <div id="status" class="status" hidden></div>

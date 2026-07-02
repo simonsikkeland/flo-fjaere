@@ -11,17 +11,23 @@ const DEFAULT_PLACE = { name: "Ålesund", meta: "By i Ålesund, Møre og Romsdal
 const el = {
   search: document.getElementById("search"),
   suggestions: document.getElementById("suggestions"),
+  favorites: document.getElementById("favorites"),
+  favToggle: document.getElementById("fav-toggle"),
   result: document.getElementById("result"),
   locationName: document.getElementById("location-name"),
   locationMeta: document.getElementById("location-meta"),
   nowCard: document.getElementById("now-card"),
   nowValue: document.getElementById("now-value"),
+  nowTrend: document.getElementById("now-trend"),
   nowNext: document.getElementById("now-next"),
+  updated: document.getElementById("updated"),
   chartTitle: document.getElementById("chart-title"),
   chart: document.getElementById("chart"),
   tables: document.getElementById("tide-tables"),
   status: document.getElementById("status"),
 };
+
+let currentPlace = null;
 
 /* ---------- Hjelpere ---------- */
 
@@ -54,6 +60,61 @@ function setStatus(message, isError = false) {
   el.status.textContent = message || "";
   el.status.classList.toggle("error", isError);
 }
+
+/* ---------- Favoritter ---------- */
+
+const placeKey = (p) => `${p.lat.toFixed(4)},${p.lon.toFixed(4)}`;
+
+function getFavorites() {
+  try {
+    const favs = JSON.parse(localStorage.getItem("floFjaereFavs"));
+    return Array.isArray(favs) ? favs : [];
+  } catch { return []; }
+}
+
+function saveFavorites(favs) {
+  localStorage.setItem("floFjaereFavs", JSON.stringify(favs));
+}
+
+function isFavorite(place) {
+  return getFavorites().some((f) => placeKey(f) === placeKey(place));
+}
+
+function renderFavorites() {
+  const favs = getFavorites();
+  el.favorites.hidden = !favs.length;
+  el.favorites.innerHTML = "";
+  for (const fav of favs) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "fav-chip";
+    btn.textContent = `★ ${fav.name}`;
+    btn.addEventListener("click", () => choosePlace(fav));
+    el.favorites.appendChild(btn);
+  }
+}
+
+function updateFavToggle() {
+  if (!currentPlace) return;
+  const fav = isFavorite(currentPlace);
+  el.favToggle.textContent = fav ? "★" : "☆";
+  const label = fav ? "Fjern fra favoritter" : "Legg til i favoritter";
+  el.favToggle.title = label;
+  el.favToggle.setAttribute("aria-label", label);
+}
+
+el.favToggle.addEventListener("click", () => {
+  if (!currentPlace) return;
+  let favs = getFavorites();
+  if (isFavorite(currentPlace)) {
+    favs = favs.filter((f) => placeKey(f) !== placeKey(currentPlace));
+  } else {
+    favs.push(currentPlace);
+  }
+  saveFavorites(favs);
+  renderFavorites();
+  updateFavToggle();
+});
 
 /* ---------- Stedssøk ---------- */
 
@@ -182,11 +243,16 @@ async function loadTides(place) {
     return;
   }
 
+  currentPlace = place;
   el.locationName.textContent = place.name;
   el.locationMeta.textContent = place.meta || "";
+  updateFavToggle();
   renderNow(curve, extremes);
   renderChart(curve, extremes);
   renderTables(extremes);
+  el.updated.textContent = "Sist oppdatert " + new Intl.DateTimeFormat("nb-NO", {
+    day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Oslo",
+  }).format(new Date());
   setStatus("");
   el.result.hidden = false;
 }
@@ -231,8 +297,10 @@ function renderNow(curve, extremes) {
     const level = curve[idx].value;
     const rising = curve[idx].value >= curve[idx - 1].value;
     el.nowValue.textContent = `${Math.round(level)} cm ${rising ? "↑" : "↓"}`;
+    el.nowTrend.textContent = rising ? "stiger" : "synker";
   } else {
     el.nowValue.textContent = "–";
+    el.nowTrend.textContent = "";
   }
 
   const next = extremes.find((x) => new Date(x.time).getTime() > now);
@@ -351,4 +419,5 @@ function initialPlace() {
 
 const startPlace = initialPlace();
 el.search.value = startPlace.name;
+renderFavorites();
 loadTides(startPlace);

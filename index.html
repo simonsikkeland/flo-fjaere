@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
   <title>Flo og fjære</title>
   <meta name="description" content="Flo og fjære (høyvann og lavvann) for steder langs norskekysten. Data fra Kartverket.">
   <link rel="stylesheet" href="style.css">
@@ -19,6 +20,8 @@
       <ul id="suggestions" class="suggestions" hidden></ul>
     </div>
 
+    <button id="geo-btn" class="geo-btn" type="button">📍 Bruk min posisjon</button>
+
     <div id="favorites" class="favorites" hidden></div>
   </header>
 
@@ -28,8 +31,11 @@
         <span id="location-name"></span>
         <button id="fav-toggle" class="fav-toggle" type="button"
                 title="Legg til i favoritter" aria-label="Legg til i favoritter">☆</button>
+        <button id="share-btn" class="share-btn" type="button"
+                title="Del lenke til dette stedet" aria-label="Del lenke til dette stedet">🔗</button>
       </h2>
       <p id="location-meta" class="muted"></p>
+      <p id="share-feedback" class="share-feedback" hidden>Lenke kopiert!</p>
     </section>
 
     <section class="now-card" id="now-card" hidden>
@@ -47,7 +53,11 @@
     <p id="updated" class="updated muted"></p>
 
     <section class="chart-card">
-      <h3 id="chart-title">I dag</h3>
+      <div class="chart-head">
+        <button id="day-prev" class="day-nav" type="button" aria-label="Forrige dag">‹</button>
+        <h3 id="chart-title">I dag</h3>
+        <button id="day-next" class="day-nav" type="button" aria-label="Neste dag">›</button>
+      </div>
       <div id="chart"></div>
     </section>
 

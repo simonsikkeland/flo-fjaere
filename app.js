@@ -13,6 +13,11 @@ const el = {
   suggestions: document.getElementById("suggestions"),
   favorites: document.getElementById("favorites"),
   favToggle: document.getElementById("fav-toggle"),
+  geoBtn: document.getElementById("geo-btn"),
+  shareBtn: document.getElementById("share-btn"),
+  shareFeedback: document.getElementById("share-feedback"),
+  dayPrev: document.getElementById("day-prev"),
+  dayNext: document.getElementById("day-next"),
   result: document.getElementById("result"),
   locationName: document.getElementById("location-name"),
   locationMeta: document.getElementById("location-meta"),
@@ -28,6 +33,8 @@ const el = {
 };
 
 let currentPlace = null;
+let tideData = null;   // { curve, extremes, days, fromDay, fetchedAt } for currentPlace
+let selectedDay = null; // ISO-dato for dagen som vises i grafen
 
 /* ---------- Hjelpere ---------- */
 
@@ -226,7 +233,7 @@ async function loadTides(place) {
   const to = addDays(from, DAYS_AHEAD);
   const common = `lat=${place.lat}&lon=${place.lon}&refcode=cd&lang=nb&dst=1&tzone=1&tide_request=locationdata`;
   const tabUrl = `${TIDE_API}?${common}&datatype=tab&fromtime=${from}T00%3A00&totime=${to}T00%3A00`;
-  const curveUrl = `${TIDE_API}?${common}&datatype=all&interval=10&fromtime=${from}T00%3A00&totime=${addDays(from, 1)}T00%3A00`;
+  const curveUrl = `${TIDE_API}?${common}&datatype=all&interval=10&fromtime=${from}T00%3A00&totime=${to}T00%3A00`;
 
   let tabXml, curveXml;
   try {
@@ -236,19 +243,25 @@ async function loadTides(place) {
     return;
   }
 
-  const extremes = parseWaterlevels(tabXml);
+  // API-et kan levere noen punkter forbi totime – kutt ved hele dager.
+  const extremes = parseWaterlevels(tabXml).filter((p) => dateOf(p.time) < to);
   const curve = parseWaterlevels(curveXml);
   if (!extremes.length) {
     setStatus("Fant ingen flo- og fjæredata for dette stedet.", true);
     return;
   }
 
+  // Dager fra tabelldataene, så grafnavigasjonen matcher lista (kurven kan ha en delvis dag på slutten).
+  const days = [...new Set(extremes.map((p) => dateOf(p.time)))].sort();
+  tideData = { curve, extremes, days, fromDay: from, fetchedAt: Date.now() };
+  selectedDay = from;
+
   currentPlace = place;
   el.locationName.textContent = place.name;
   el.locationMeta.textContent = place.meta || "";
   updateFavToggle();
-  renderNow(curve, extremes);
-  renderChart(curve, extremes);
+  renderNow();
+  renderChart();
   renderTables(extremes);
   el.updated.textContent = "Sist oppdatert " + new Intl.DateTimeFormat("nb-NO", {
     day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Oslo",
@@ -289,7 +302,15 @@ function parseWaterlevels(doc) {
 
 /* ---------- Visning ---------- */
 
-function renderNow(curve, extremes) {
+function countdownText(msUntil) {
+  const totalMin = Math.max(0, Math.round(msUntil / 60000));
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  return h > 0 ? `om ${h} t ${m} min` : `om ${m} min`;
+}
+
+function renderNow() {
+  if (!tideData) return;
+  const { curve, extremes } = tideData;
   const now = Date.now();
   const idx = curve.findIndex((p) => new Date(p.time).getTime() >= now);
 
@@ -305,22 +326,37 @@ function renderNow(curve, extremes) {
 
   const next = extremes.find((x) => new Date(x.time).getTime() > now);
   el.nowNext.textContent = next
-    ? `${next.flag === "high" ? "Flo" : "Fjære"} kl. ${clockOf(next.time)} (${Math.round(next.value)} cm)`
+    ? `${next.flag === "high" ? "Flo" : "Fjære"} kl. ${clockOf(next.time)} (${Math.round(next.value)} cm) – ${countdownText(new Date(next.time).getTime() - now)}`
     : "–";
   el.nowCard.hidden = false;
 }
 
-function renderChart(curve, extremes) {
-  el.chartTitle.textContent = "I dag – " + new Intl.DateTimeFormat("nb-NO", {
-    day: "numeric", month: "long", timeZone: "Europe/Oslo",
-  }).format(new Date());
+function renderChart() {
+  if (!tideData) return;
+  const { curve, extremes, days } = tideData;
 
-  if (curve.length < 2) { el.chart.innerHTML = ""; return; }
+  const dayIdx = days.indexOf(selectedDay);
+  el.dayPrev.disabled = dayIdx <= 0;
+  el.dayNext.disabled = dayIdx < 0 || dayIdx >= days.length - 1;
+
+  const label = dayLabel(selectedDay);
+  el.chartTitle.textContent = /^I /.test(label)
+    ? label + " – " + new Intl.DateTimeFormat("nb-NO", {
+        day: "numeric", month: "long", timeZone: "Europe/Oslo",
+      }).format(new Date(selectedDay + "T12:00:00Z"))
+    : label;
+
+  // Dagens punkter + første punkt neste døgn, så kurven når helt til kl. 24:00.
+  const dayCurve = curve.filter((p) => dateOf(p.time) === selectedDay);
+  const nextIdx = curve.indexOf(dayCurve[dayCurve.length - 1]) + 1;
+  if (curve[nextIdx]) dayCurve.push(curve[nextIdx]);
+
+  if (dayCurve.length < 2) { el.chart.innerHTML = ""; return; }
 
   const W = 800, H = 240, padL = 44, padR = 12, padT = 26, padB = 26;
-  const t0 = new Date(curve[0].time).getTime();
-  const t1 = new Date(curve[curve.length - 1].time).getTime();
-  const values = curve.map((p) => p.value);
+  const t0 = new Date(dayCurve[0].time).getTime();
+  const t1 = t0 + 24 * 3600e3;
+  const values = dayCurve.map((p) => p.value);
   const vMin = Math.min(...values), vMax = Math.max(...values);
   const span = Math.max(vMax - vMin, 20);
   const yMin = vMin - span * 0.12, yMax = vMax + span * 0.12;
@@ -328,24 +364,25 @@ function renderChart(curve, extremes) {
   const x = (t) => padL + ((t - t0) / (t1 - t0)) * (W - padL - padR);
   const y = (v) => padT + (1 - (v - yMin) / (yMax - yMin)) * (H - padT - padB);
 
-  const pts = curve.map((p) => `${x(new Date(p.time).getTime()).toFixed(1)},${y(p.value).toFixed(1)}`);
+  const pts = dayCurve.map((p) => `${x(new Date(p.time).getTime()).toFixed(1)},${y(p.value).toFixed(1)}`);
   const linePath = "M" + pts.join(" L");
-  const areaPath = `${linePath} L${(W - padR).toFixed(1)},${H - padB} L${padL},${H - padB} Z`;
+  const lastX = x(new Date(dayCurve[dayCurve.length - 1].time).getTime()).toFixed(1);
+  const areaPath = `${linePath} L${lastX},${H - padB} L${padL},${H - padB} Z`;
 
-  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vannstandskurve for i dag">`;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vannstandskurve for ${dayLabel(selectedDay)}">`;
 
   // Rutenett: hver 6. time + y-akse-merker
   for (let h = 0; h <= 24; h += 6) {
     const gx = x(t0 + h * 3600e3);
-    svg += `<line x1="${gx}" y1="${padT}" x2="${gx}" y2="${H - padB}" stroke="#d8e5ec" stroke-width="1"/>`;
-    svg += `<text x="${gx}" y="${H - 8}" font-size="11" fill="#5b7482" text-anchor="middle">${String(h).padStart(2, "0")}:00</text>`;
+    svg += `<line x1="${gx}" y1="${padT}" x2="${gx}" y2="${H - padB}" style="stroke:var(--grid)" stroke-width="1"/>`;
+    svg += `<text x="${gx}" y="${H - 8}" font-size="11" style="fill:var(--muted)" text-anchor="middle">${String(h).padStart(2, "0")}:00</text>`;
   }
   for (const v of [Math.round(vMin / 10) * 10, Math.round(((vMin + vMax) / 2) / 10) * 10, Math.round(vMax / 10) * 10]) {
-    svg += `<text x="${padL - 6}" y="${y(v) + 4}" font-size="11" fill="#5b7482" text-anchor="end">${v}</text>`;
+    svg += `<text x="${padL - 6}" y="${y(v) + 4}" font-size="11" style="fill:var(--muted)" text-anchor="end">${v}</text>`;
   }
 
-  svg += `<path d="${areaPath}" fill="rgba(13,106,158,0.18)"/>`;
-  svg += `<path d="${linePath}" fill="none" stroke="#0d6a9e" stroke-width="2.5" stroke-linejoin="round"/>`;
+  svg += `<path d="${areaPath}" style="fill:var(--sea)"/>`;
+  svg += `<path d="${linePath}" fill="none" style="stroke:var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>`;
 
   // Flo/fjære-markører innenfor dagen
   for (const ex of extremes) {
@@ -353,22 +390,36 @@ function renderChart(curve, extremes) {
     if (t < t0 || t > t1) continue;
     const ey = y(ex.value), exx = x(t);
     const isHigh = ex.flag === "high";
-    svg += `<circle cx="${exx}" cy="${ey}" r="4.5" fill="${isHigh ? "#0d6a9e" : "#c26a1c"}"/>`;
+    svg += `<circle cx="${exx}" cy="${ey}" r="4.5" style="fill:var(${isHigh ? "--high" : "--low"})"/>`;
     const ty = isHigh ? ey - 10 : ey + 18;
-    svg += `<text x="${exx}" y="${ty}" font-size="12" font-weight="600" fill="#16323f" text-anchor="middle">${clockOf(ex.time)}</text>`;
+    svg += `<text x="${exx}" y="${ty}" font-size="12" font-weight="600" style="fill:var(--ink)" text-anchor="middle">${clockOf(ex.time)}</text>`;
   }
 
-  // Nå-markør
+  // Nå-markør (bare når valgt dag er i dag)
   const now = Date.now();
   if (now >= t0 && now <= t1) {
     const nx = x(now);
-    svg += `<line x1="${nx}" y1="${padT}" x2="${nx}" y2="${H - padB}" stroke="#16323f" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.6"/>`;
-    svg += `<text x="${nx}" y="${padT - 8}" font-size="11" fill="#16323f" text-anchor="middle">nå</text>`;
+    svg += `<line x1="${nx}" y1="${padT}" x2="${nx}" y2="${H - padB}" style="stroke:var(--ink)" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.6"/>`;
+    svg += `<text x="${nx}" y="${padT - 8}" font-size="11" style="fill:var(--ink)" text-anchor="middle">nå</text>`;
   }
 
   svg += "</svg>";
   el.chart.innerHTML = svg;
 }
+
+function selectDay(day) {
+  if (!tideData || !tideData.days.includes(day)) return;
+  selectedDay = day;
+  renderChart();
+}
+
+el.dayPrev.addEventListener("click", () => {
+  if (tideData) selectDay(tideData.days[tideData.days.indexOf(selectedDay) - 1]);
+});
+
+el.dayNext.addEventListener("click", () => {
+  if (tideData) selectDay(tideData.days[tideData.days.indexOf(selectedDay) + 1]);
+});
 
 function renderTables(extremes) {
   const byDay = new Map();
@@ -383,7 +434,16 @@ function renderTables(extremes) {
     const block = document.createElement("div");
     block.className = "day-block";
     const h4 = document.createElement("h4");
-    h4.textContent = dayLabel(day);
+    const headBtn = document.createElement("button");
+    headBtn.type = "button";
+    headBtn.className = "day-heading";
+    headBtn.textContent = dayLabel(day);
+    headBtn.title = "Vis i grafen";
+    headBtn.addEventListener("click", () => {
+      selectDay(day);
+      document.querySelector(".chart-card").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    h4.appendChild(headBtn);
     block.appendChild(h4);
 
     const table = document.createElement("table");
@@ -400,6 +460,90 @@ function renderTables(extremes) {
     el.tables.appendChild(block);
   }
 }
+
+/* ---------- Geolokasjon ---------- */
+
+el.geoBtn.addEventListener("click", () => {
+  if (!navigator.geolocation) {
+    setStatus("Nettleseren din støtter ikke posisjonstjenester.", true);
+    return;
+  }
+  setStatus("Finner posisjonen din …");
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    let name = "Min posisjon", meta = "";
+    try {
+      const url = `https://api.kartverket.no/stedsnavn/v1/punkt?nord=${lat}&ost=${lon}&koordsys=4258&radius=2000&treffPerSide=20`;
+      const data = await (await fetch(url)).json();
+      const skipTypes = new Set(["Adressenavn", "Veg", "Gate", "Vegkryss", "Vegbom", "Bru"]);
+      const nearest = (data.navn || [])
+        .filter((n) => n.stedsnavn?.[0]?.skrivemåte && !skipTypes.has(n.navneobjekttype))
+        .sort((a, b) => a.meterFraPunkt - b.meterFraPunkt)[0];
+      if (nearest) {
+        name = nearest.stedsnavn[0].skrivemåte;
+        meta = `${nearest.navneobjekttype} nær posisjonen din`;
+      }
+    } catch { /* behold fallback-navnet */ }
+    choosePlace({ name, meta, lat, lon });
+  }, () => {
+    setStatus("Fikk ikke tilgang til posisjonen din. Sjekk at posisjonstilgang er tillatt for denne siden.", true);
+  }, { timeout: 15000 });
+});
+
+/* ---------- Deling ---------- */
+
+let shareFeedbackTimer = null;
+
+el.shareBtn.addEventListener("click", async () => {
+  const url = location.href;
+  const title = `Flo og fjære – ${currentPlace ? currentPlace.name : ""}`;
+  if (navigator.share) {
+    try { await navigator.share({ title, url }); } catch { /* avbrutt av bruker */ }
+    return;
+  }
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(url);
+    copied = true;
+  } catch {
+    // Fallback for eldre nettlesere / manglende clipboard-tilgang
+    const ta = document.createElement("textarea");
+    ta.value = url;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { copied = document.execCommand("copy"); } catch { /* gir opp */ }
+    ta.remove();
+  }
+  if (copied) {
+    el.shareFeedback.hidden = false;
+    clearTimeout(shareFeedbackTimer);
+    shareFeedbackTimer = setTimeout(() => { el.shareFeedback.hidden = true; }, 2000);
+  } else {
+    setStatus("Kunne ikke kopiere lenken.", true);
+  }
+});
+
+/* ---------- Auto-oppdatering ---------- */
+
+function refreshIfStale() {
+  if (!currentPlace || !tideData) return;
+  const dayRolledOver = osloToday() !== tideData.fromDay;
+  const stale = Date.now() - tideData.fetchedAt > 60 * 60e3;
+  if (dayRolledOver || stale) loadTides(currentPlace);
+}
+
+setInterval(() => {
+  if (!tideData) return;
+  if (osloToday() !== tideData.fromDay) { refreshIfStale(); return; }
+  renderNow();
+  if (selectedDay === osloToday()) renderChart(); // flytt nå-linjen
+}, 60e3);
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshIfStale();
+});
 
 /* ---------- Oppstart ---------- */
 
